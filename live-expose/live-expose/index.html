@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>live.expose</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><circle cx=50 cy=50 r=40 fill=%22%23a970ff%22/></svg>">
+<style>
+:root{
+  --bg:#0a0710; --panel:#150f22; --border:#2a2038;
+  --purple:#a970ff; --purple2:#7c3aed; --text:#f2eefb; --dim:#9d93b3; --pill:#1c1530;
+}
+*{box-sizing:border-box;}
+html,body{margin:0; padding:0; min-height:100%;}
+body{
+  background:
+    radial-gradient(circle at 15% 0%, rgba(124,58,237,0.20), transparent 40%),
+    radial-gradient(circle at 85% 10%, rgba(169,112,255,0.12), transparent 45%),
+    var(--bg);
+  color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif;
+}
+header{
+  position:sticky; top:0; z-index:20;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:16px 28px; background:rgba(10,7,16,0.85); backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--border); gap:16px; flex-wrap:wrap;
+}
+.brand{display:flex; align-items:baseline; gap:10px;}
+.brand .name{font-size:20px; letter-spacing:6px; font-weight:600;}
+.brand .name b{color:var(--purple); font-weight:700;}
+.brand .tag{font-size:11px; color:var(--dim); letter-spacing:1px;}
+nav{display:flex; gap:22px; font-size:13px; color:var(--dim);}
+nav span.active{color:var(--text); border-bottom:2px solid var(--purple); padding-bottom:4px;}
+.hero{padding:64px 28px 28px; text-align:center;}
+.hero h1{font-size:56px; letter-spacing:14px; margin:0 0 10px; font-weight:300;
+  background:linear-gradient(135deg,#fff,var(--purple)); -webkit-background-clip:text; background-clip:text; color:transparent;}
+.hero p{color:var(--dim); font-size:13px; letter-spacing:2px; margin:0 0 32px;}
+.searchwrap{max-width:640px; margin:0 auto 22px;}
+.searchwrap input{width:100%; padding:13px 18px; border-radius:999px; border:1px solid var(--border);
+  background:var(--panel); color:var(--text); font-size:14px; outline:none;}
+.searchwrap input:focus{border-color:var(--purple);}
+.tabs{display:flex; gap:10px; flex-wrap:wrap; justify-content:center; padding:0 20px 40px; max-width:1000px; margin:0 auto;}
+.pill{background:var(--pill); border:1px solid var(--border); color:var(--dim);
+  padding:8px 16px; border-radius:999px; font-size:12px; cursor:pointer; white-space:nowrap;}
+.pill .count{opacity:0.6; margin-left:4px;}
+.pill.active{background:var(--text); color:#0a0710; border-color:var(--text);}
+main{max-width:1200px; margin:0 auto; padding:0 24px 80px;}
+.grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:16px;}
+.card{background:var(--panel); border:1px solid var(--border); border-radius:14px; overflow:hidden;}
+.card .thumb{width:100%; aspect-ratio:4/5; object-fit:cover; display:block; background:#1a1428;}
+.card .meta{padding:10px 12px 12px;}
+.card .meta .name{font-size:13px; font-weight:600;}
+.card .meta .cat{font-size:11px; color:var(--purple); text-transform:uppercase; letter-spacing:1px;}
+.empty,.loading{color:var(--dim); text-align:center; padding:80px 20px; font-size:14px;}
+footer{text-align:center; color:var(--dim); font-size:11px; padding:30px; border-top:1px solid var(--border);}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand"><span class="name">LIVE<b>.</b>EXPOSE</span><span class="tag">test build</span></div>
+  <nav><span class="active">GALLERY</span></nav>
+</header>
+
+<section class="hero">
+  <h1>LIVE</h1>
+  <p>we expose communities</p>
+  <div class="searchwrap"><input id="search" placeholder="search posts, names, categories"></div>
+  <div class="tabs" id="tabs"></div>
+</section>
+
+<main>
+  <div class="loading" id="loading">Loading gallery…</div>
+  <div class="grid" id="grid"></div>
+  <div class="empty" id="empty" style="display:none;">Nothing here yet.</div>
+</main>
+
+<footer>live.expose — content managed by the site owner</footer>
+
+<script>
+let items = [];
+let activeTab = 'ALL';
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+async function load(){
+  try{
+    const res = await fetch('/api/images');
+    items = res.ok ? await res.json() : [];
+  }catch(e){
+    items = [];
+  }
+  document.getElementById('loading').style.display = 'none';
+  render();
+}
+
+function getCategories(){
+  const map = {};
+  items.forEach(it=>{
+    const c = it.category || 'uncategorized';
+    map[c] = (map[c]||0)+1;
+  });
+  return map;
+}
+
+function renderTabs(){
+  const cats = getCategories();
+  const tabs = document.getElementById('tabs');
+  let html = `<div class="pill ${activeTab==='ALL'?'active':''}" data-tab="ALL">ALL <span class="count">${items.length}</span></div>`;
+  Object.keys(cats).sort().forEach(c=>{
+    html += `<div class="pill ${activeTab===c?'active':''}" data-tab="${escapeHtml(c)}">${escapeHtml(c.toUpperCase())} <span class="count">${cats[c]}</span></div>`;
+  });
+  tabs.innerHTML = html;
+  tabs.querySelectorAll('.pill').forEach(p=>{
+    p.addEventListener('click', ()=>{ activeTab = p.dataset.tab; render(); });
+  });
+}
+
+function render(){
+  renderTabs();
+  const q = document.getElementById('search').value.trim().toLowerCase();
+  const grid = document.getElementById('grid');
+  const empty = document.getElementById('empty');
+
+  const filtered = items.filter(it=>{
+    const catOk = activeTab==='ALL' || (it.category||'uncategorized')===activeTab;
+    const searchOk = !q || (it.name||'').toLowerCase().includes(q) || (it.category||'').toLowerCase().includes(q);
+    return catOk && searchOk;
+  });
+
+  if(filtered.length===0){
+    grid.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+
+  grid.innerHTML = filtered.map(it=>`
+    <div class="card">
+      <img class="thumb" src="${it.url}" alt="${escapeHtml(it.name||'')}" loading="lazy">
+      <div class="meta">
+        <div class="name">${escapeHtml(it.name||'Untitled')}</div>
+        <div class="cat">${escapeHtml(it.category||'uncategorized')}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+document.getElementById('search').addEventListener('input', render);
+load();
+setInterval(load, 15000);
+</script>
+</body>
+</html>
